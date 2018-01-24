@@ -8,7 +8,6 @@
 #include <time.h>
 
 
-
 const int MAX_THREADS = 1024;
 
 long thread_count;
@@ -34,18 +33,25 @@ int cLockDelete = 0;
 int cSerialMember = 0;
 int cSerialInsert = 0;
 int cSerialDelete = 0;
-int totalMember=0;
-int totalDelete=0;
-int totalInsert=0;
+int totalMember = 0;
+int totalDelete = 0;
+int totalInsert = 0;
 int noOfTimes;
 
 int Member(int value, struct list_node_s *head_p);
+
 int Insert(int value, struct list_node_s **head_pp);
+
 int Delete(int value, struct list_node_s **head_pp);
-void Get_args(int argc, char* argv[]);
+
+void Get_args(int argc, char *argv[]);
+
 void *PerformMutex(void *rank);
+
 void *PerformLocks(void *rank);
+
 void *PerformSerial();
+
 void Usage(char *prog_name);
 
 int main(int argc, char *argv[]) {
@@ -93,30 +99,26 @@ int main(int argc, char *argv[]) {
     pthread_rwlock_destroy(&rwlock);
     endLocks = clock();
     executionLocks = (endLocks - startLocks) / CLOCKS_PER_SEC;
-//    printf("Execution times :\n");
-//    printf("Serial = %f milliseconds\n", executionSerial*1000);
-//    printf("One Mutex for entireList  = %f milliseconds\n", executionMutex*1000);
-//    printf("Read-Write lock = %f milliseconds\n", executionLocks*1000);
-    printf("%f,%f,%f\n",executionSerial*1000,executionMutex*1000,executionLocks*1000);
+    printf("%f,%f,%f\n", executionSerial * 1000, executionMutex * 1000, executionLocks * 1000);
 
 } /*main*/
 
 
 void *PerformMutex(void *rank) {
     while (cMember<=totalMember || cDelete<=totalDelete || cInsert<=totalInsert  ){
-        float seperator = (rand() % 3);
+        float seperator = (rand() % 20);
         int r = rand() % 65536;
-        if (seperator ==0 && cMember<=totalMember) {
+        if (seperator < mMember && cMember <= totalMember) {
             pthread_mutex_lock(&mutex);
             Member(r, head);
             cMember++;
             pthread_mutex_unlock(&mutex);
-        } else if (seperator == 1 && cInsert<=totalInsert ) {
+        } else if (seperator < (mMember + mInsert) && cInsert <= totalInsert) {
             pthread_mutex_lock(&mutex);
             Insert(r, &head);
             cInsert++;
             pthread_mutex_unlock(&mutex);
-        } else if (seperator ==2 && cDelete<=totalDelete ){
+        } else if (cDelete <= totalDelete) {
             pthread_mutex_lock(&mutex);
             Delete(r, &head);
             cDelete++;
@@ -125,26 +127,29 @@ void *PerformMutex(void *rank) {
     }
 
     return NULL;
-}  /* Thread_mutex */
+
+} /* Thread_mutex */
 
 void *PerformLocks(void *rank) {
-    while (cLockMember<=totalMember || cLockDelete<=totalDelete || cLockInsert<=totalInsert  ){
-        float seperator = (rand() % 3);
+
+
+    while (cLockMember <= totalMember || cLockDelete <= totalDelete || cLockInsert <= totalInsert) {
+        float seperator = (rand() % 10000 / 10000.0);
         int r = rand() % 65536;
-        if (seperator ==0 && cLockMember<=totalMember) {
-            pthread_rwlock_rdlock(&rwlock);
-            Member(r,head);
-            cLockMember++;
-            pthread_rwlock_unlock(&rwlock);
-        } else if (seperator == 1 && cLockInsert<=totalInsert ) {
+        if (seperator < mMember && cLockDelete <= totalDelete) {
             pthread_rwlock_wrlock(&rwlock);
-            Insert(r,&head);
+            Delete(r, &head);
+            cLockDelete++;
+            pthread_rwlock_unlock(&rwlock);
+        } else if (seperator < (mMember + mInsert) && cLockInsert <= totalInsert) {
+            pthread_rwlock_wrlock(&rwlock);
+            Insert(r, &head);
             cLockInsert++;
             pthread_rwlock_unlock(&rwlock);
-        } else if (seperator ==2 && cLockDelete<=totalDelete ){
-            pthread_rwlock_wrlock(&rwlock);
-            Delete(r,&head);
-            cLockDelete++;
+        } else if (cLockMember <= totalMember) {
+            pthread_rwlock_rdlock(&rwlock);
+            Member(r, head);
+            cLockMember++;
             pthread_rwlock_unlock(&rwlock);
         }
     }
@@ -154,16 +159,16 @@ void *PerformLocks(void *rank) {
 
 void *PerformSerial() {
     while (cSerialMember<=totalMember || cSerialDelete<=totalDelete || cSerialInsert<=totalInsert  ){
-        float seperator = (rand() % 3);
+        float seperator = (rand() % 10000 / 10000.0);
         int r = rand() % 65536;
-        if (seperator ==0 && cSerialMember<=totalMember) {
+        if (seperator< mMember && cSerialMember<=totalMember) {
             Member(r, head);
             cSerialMember++;
-        } else if (seperator == 1 && cSerialInsert<=totalInsert ) {
+        } else if (seperator < (mMember + mInsert) && cSerialInsert<=totalInsert ) {
             Insert(r, &head);
             cSerialInsert++;
 
-        } else if (seperator ==2 && cSerialDelete<=totalDelete ){
+        } else if (cSerialDelete<=totalDelete ){
             Delete(r, &head);
             cSerialDelete++;
         }
@@ -240,7 +245,7 @@ int Delete(int value, struct list_node_s **head_pp) {
 
 }   /*Delete*/
 
-void Get_args(int argc, char* argv[]) {
+void Get_args(int argc, char *argv[]) {
     if (argc != 7) {
         Usage(argv[0]);
     }
@@ -258,9 +263,9 @@ void Get_args(int argc, char* argv[]) {
 
 
     if (n <= 0 || m <= 0 || mMember + mInsert + mDelete != 1.0) Usage(argv[0]);
-    totalMember = m*mMember;
-    totalInsert = m*mInsert;
-    totalDelete = m*mDelete;
+    totalMember = m * mMember;
+    totalInsert = m * mInsert;
+    totalDelete = m * mDelete;
 
 
 }  /* Get_args */
@@ -268,7 +273,8 @@ void Get_args(int argc, char* argv[]) {
 
 
 void Usage(char *prog_name) {
-    fprintf(stderr, "usage: %s <number of threads> <n> <m> <mMember> <mInsert> <mDelete> <noOfExecutions>\n", prog_name);
+    fprintf(stderr, "usage: %s <number of threads> <n> <m> <mMember> <mInsert> <mDelete> <noOfExecutions>\n",
+            prog_name);
     fprintf(stderr, "n : Total Number of Unique Values.\n");
     fprintf(stderr, "m : Total Number of Operations.\n");
     fprintf(stderr, "mMember : Fraction of Member Operations.\n");
